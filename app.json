@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "kenni",
+    "slug": "kenni",
+    "scheme": "kenni",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-document-picker",
+      "expo-audio"
+    ]
+  }
+}
