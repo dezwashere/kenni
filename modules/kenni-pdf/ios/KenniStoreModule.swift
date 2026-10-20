@@ -3,7 +3,7 @@ import StoreKit
 
 @available(iOS 15.0, *)
 public class KenniStoreModule: Module {
-  private let productId = "kenni.pdf_read_aloud.monthly"
+  private let productIds = ["kenni.pdf_read_aloud.monthly", "kenni.pdf_read_aloud.annual"]
 
   public func definition() -> ModuleDefinition {
     Name("KenniStore")
@@ -12,15 +12,13 @@ public class KenniStoreModule: Module {
       await self.entitlementStatus()
     }
 
-    AsyncFunction("offer") { () async throws -> [String: String] in
-      let products = try await Product.products(for: [self.productId])
-      guard let product = products.first else { throw StoreError.productUnavailable }
-      return ["id": product.id, "price": product.displayPrice, "name": product.displayName]
+    AsyncFunction("offers") { () async throws -> [[String: String]] in
+      try await Product.products(for: self.productIds).map { ["id": $0.id, "price": $0.displayPrice, "name": $0.displayName] }
     }
 
-    AsyncFunction("purchase") { () async throws -> [String: Any] in
-      let products = try await Product.products(for: [self.productId])
-      guard let product = products.first else { throw StoreError.productUnavailable }
+    AsyncFunction("purchase") { (requestedId: String) async throws -> [String: Any] in
+      let products = try await Product.products(for: self.productIds)
+      guard let product = products.first(where: { $0.id == requestedId }) else { throw StoreError.productUnavailable }
       let result = try await product.purchase()
       switch result {
       case .success(let verification):
@@ -44,7 +42,7 @@ public class KenniStoreModule: Module {
     let now = Date()
     for await result in Transaction.currentEntitlements {
       guard case .verified(let transaction) = result,
-            transaction.productID == productId,
+            self.productIds.contains(transaction.productID),
             transaction.revocationDate == nil,
             (transaction.expirationDate == nil || transaction.expirationDate! > now) else { continue }
       return ["pdfReadAloud": true]

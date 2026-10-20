@@ -5,7 +5,7 @@ import { savedNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
-import { purchaseSubscription, restoreSubscription, subscriptionOffer, subscriptionStatus } from '../src/store';
+import { purchaseSubscription, restoreSubscription, subscriptionOffers, subscriptionStatus } from '../src/store';
 
 export default function PdfReader() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,7 +32,7 @@ export default function PdfReader() {
     let active = true;
     subscriptionStatus().then(s => { if (active) { setPremium(s.pdfReadAloud); premiumRef.current = s.pdfReadAloud; } })
       .catch(() => { if (active) { setPremium(false); premiumRef.current = false; } });
-    subscriptionOffer().then(o => { if (active) setPrice(o.price + ' / month'); }).catch(() => {});
+    subscriptionOffers().then(o => { if (active && o[0]) setPrice(o[0].price); }).catch(() => {});
     savedNarrator().then(v => { if (active) setVoiceId(v); }).catch(() => {});
     return () => { active = false; };
   }, []));
@@ -130,7 +130,9 @@ export default function PdfReader() {
   };
   const subscribe = async () => {
     try {
-      const status = await purchaseSubscription();
+      const offers = await subscriptionOffers();
+      if (!offers[0]) { Alert.alert('Subscriptions unavailable', 'Configure the PDF narration product in App Store Connect before purchasing.'); return; }
+      const status = await purchaseSubscription(offers[0]?.id || '');
       setPremium(status.pdfReadAloud); premiumRef.current = status.pdfReadAloud;
       if (status.pdfReadAloud) Alert.alert('kenni', 'PDF narration is unlocked.');
     } catch (e) { Alert.alert('Subscription unavailable', String(e)); }
