@@ -6,10 +6,11 @@ import UIKit
 public class KenniPdfModule: Module {
   public func definition() -> ModuleDefinition {
     Name("KenniPdf")
+
     AsyncFunction("pageCount") { (uri: String) throws -> Int in
-      let document = try self.openDocument(uri)
-      return document.pageCount
+      try self.openDocument(uri).pageCount
     }
+
     AsyncFunction("readPage") { (uri: String, pageIndex: Int) throws -> [String: Any] in
       let document = try self.openDocument(uri)
       guard pageIndex >= 0, pageIndex < document.pageCount,
@@ -20,16 +21,24 @@ public class KenniPdfModule: Module {
       if !extracted.isEmpty {
         return ["text": extracted, "method": "embedded", "pageIndex": pageIndex]
       }
-      // Apple Vision runs fully on-device; no book pages are uploaded.
+
+      // Only image-only pages use Vision OCR. Processing stays on the iPhone.
       let image = page.thumbnail(of: CGSize(width: 1800, height: 2400), for: .mediaBox)
       guard let cgImage = image.cgImage else { throw PdfReaderError.renderFailed }
       let request = VNRecognizeTextRequest()
       request.recognitionLevel = .accurate
       request.usesLanguageCorrection = true
       try VNImageRequestHandler(cgImage: cgImage).perform([request])
-      let text = (request.results ?? [])
-        .compactMap { $0.topCandidates(1).first?.string }
-        .joined(separator: "\n")
+      let observations = request.results ?? []
+      // Vision coordinates start at the bottom left. Sort top-to-bottom,
+      // then left-to-right, rather than trusting detector return order.
+      let sorted = observations.sorted { a, b in
+        let ay = a.boundingBox.midY
+        let by = b.boundingBox.midY
+        if abs(ay - by) > 0.015 { return ay > by }
+        return a.boundingBox.minX < b.boundingBox.minX
+      }
+      let text = sorted.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
       return ["text": text, "method": "ocr", "pageIndex": pageIndex]
     }
   }
