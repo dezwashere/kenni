@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
-import { savedNarrator } from '../src/voices';
+import { savedAvailableNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
@@ -27,13 +27,14 @@ export default function PdfReader() {
   const premiumRef = useRef(false);
   const rateRef = useRef(1);
   const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     subscriptionStatus().then(s => { if (active) { setPremium(s.pdfReadAloud); premiumRef.current = s.pdfReadAloud; } })
       .catch(() => { if (active) { setPremium(false); premiumRef.current = false; } });
     subscriptionOffers().then(o => { if (active && o[0]) setPrice(o[0].price); }).catch(() => {});
-    savedNarrator().then(v => { if (active) setVoiceId(v); }).catch(() => {});
+    savedAvailableNarrator().then(v => { if (active) setVoiceId(v); }).catch(() => {});
     return () => { active = false; };
   }, []));
 
@@ -49,9 +50,9 @@ export default function PdfReader() {
         setTotal(count); totalRef.current = count;
         const initial = Math.max(0, Math.min(item.pageIndex, count - 1));
         setPage(initial); pageRef.current = initial;
-      } catch (e) { if (active) Alert.alert('PDF error', String(e)); }
+      } catch (e) { if (active) setError(String(e)); }
     })();
-    return () => { active = false; generation.current++; speechSession.current++; Speech.stop(); };
+    return () => { active = false; generation.current++; speechSession.current++; void Speech.stop(); };
   }, [id]);
 
   useEffect(() => {
@@ -122,6 +123,8 @@ export default function PdfReader() {
         return;
       }
       const session = ++speechSession.current;
+      await Speech.stop();
+      if (speechSession.current !== session) return;
       setSpeaking(true);
       readSequence(pageRef.current, session).catch(e => {
         if (speechSession.current === session) { setSpeaking(false); Alert.alert('Narration error', String(e)); }
@@ -145,6 +148,7 @@ export default function PdfReader() {
     } catch (e) { Alert.alert('Restore failed', String(e)); }
   };
 
+  if (error) return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18, justifyContent: 'center' }}><Text style={{ fontSize: 26, fontWeight: '900', color: '#111' }}>PDF unavailable</Text><Text style={{ color: '#111', marginTop: 10 }}>{error}</Text><TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: '#111', fontWeight: '900' }}>← Back to library</Text></TouchableOpacity></View>;
   return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18 }}>
     <Text style={{ fontSize: 26, fontWeight: '900', color: '#111' }} numberOfLines={2}>{book?.title || 'PDF Reader'}</Text>
     <Text style={{ color: '#111', marginVertical: 10 }}>Page {page + 1} / {total || '…'} {method === 'ocr' ? '· OCR' : method ? '· Text' : ''}</Text>

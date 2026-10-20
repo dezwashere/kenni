@@ -10,6 +10,12 @@ export async function availableNarrators(): Promise<NarratorVoice[]> {
     .sort((a, b) => a.language.localeCompare(b.language) || a.name.localeCompare(b.name));
 }
 export async function savedNarrator(): Promise<string | null> { return AsyncStorage.getItem(KEY); }
+export async function savedAvailableNarrator(): Promise<string | null> {
+  const saved = await savedNarrator();
+  if (!saved) return null;
+  const voices = await availableNarrators();
+  return voices.some(v => v.identifier === saved) ? saved : null;
+}
 export async function saveNarrator(id: string | null): Promise<void> {
   if (id) await AsyncStorage.setItem(KEY, id);
   else await AsyncStorage.removeItem(KEY);

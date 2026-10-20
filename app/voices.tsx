@@ -1,8 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { availableNarrators, savedNarrator, saveNarrator, VOICE_PREVIEW, type NarratorVoice } from '../src/voices';
+import { availableNarrators, savedAvailableNarrator, saveNarrator, VOICE_PREVIEW, type NarratorVoice } from '../src/voices';
 
 export default function VoicePicker() {
   const [voices, setVoices] = useState<NarratorVoice[]>([]);
@@ -10,18 +10,20 @@ export default function VoicePicker() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<string | null>(null);
+  const previewRun = useRef(0);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     setLoading(true);
-    Promise.all([availableNarrators(), savedNarrator()])
+    Promise.all([availableNarrators(), savedAvailableNarrator()])
       .then(([list, id]) => { if (active) { setVoices(list); setSelected(id); } })
       .catch(e => { if (active) Alert.alert('Voices unavailable', String(e)); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; Speech.stop(); };
+    return () => { active = false; previewRun.current++; void Speech.stop(); setPreview(null); };
   }, []));
 
   const play = async (voice: NarratorVoice) => {
+    const run = ++previewRun.current;
     try {
       await Speech.stop();
       if (preview === voice.identifier) { setPreview(null); return; }
@@ -30,11 +32,11 @@ export default function VoicePicker() {
         voice: voice.identifier,
         language: voice.language,
         rate: 0.95,
-        onDone: () => setPreview(null),
-        onStopped: () => setPreview(null),
-        onError: () => setPreview(null),
+        onDone: () => { if (previewRun.current === run) setPreview(null); },
+        onStopped: () => { if (previewRun.current === run) setPreview(null); },
+        onError: () => { if (previewRun.current === run) setPreview(null); },
       });
-    } catch (e) { setPreview(null); Alert.alert('Preview failed', String(e)); }
+    } catch (e) { if (previewRun.current === run) setPreview(null); Alert.alert('Preview failed', String(e)); }
   };
   const choose = async (voice: NarratorVoice) => {
     try { await saveNarrator(voice.identifier); setSelected(voice.identifier); }
