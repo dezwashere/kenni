@@ -3,7 +3,15 @@ import * as FS from 'expo-file-system/legacy';
 import * as Picker from 'expo-document-picker';
 export type Book={id:string;title:string;uri:string;addedAt:number;position:number;duration?:number};
 const KEY='kenni:books:v1';
-export async function getBooks():Promise<Book[]>{try{return JSON.parse((await AsyncStorage.getItem(KEY))||'[]')}catch{return []}}
+function isBook(value: unknown): value is Book {
+ if (!value || typeof value !== 'object') return false;
+ const book = value as Partial<Book>;
+ return typeof book.id === 'string' && typeof book.title === 'string' &&
+  typeof book.uri === 'string' && typeof book.addedAt === 'number' &&
+  typeof book.position === 'number' && Number.isFinite(book.position) && book.position >= 0 &&
+  (book.duration === undefined || (typeof book.duration === 'number' && Number.isFinite(book.duration) && book.duration >= 0));
+}
+export async function getBooks():Promise<Book[]>{try{const parsed:unknown=JSON.parse((await AsyncStorage.getItem(KEY))||'[]');return Array.isArray(parsed)?parsed.filter(isBook):[]}catch{return []}}
 async function save(books:Book[]){await AsyncStorage.setItem(KEY,JSON.stringify(books))}
 const mimeExtensions:Record<string,string>={
  'audio/aac':'aac','audio/flac':'flac','audio/m4a':'m4a','audio/mp4':'m4a','audio/mpeg':'mp3',
