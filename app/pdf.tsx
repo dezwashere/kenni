@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
-import { savedAvailableNarrator } from '../src/voices';
+import { narrationVoice, savedAvailableNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
@@ -17,9 +17,14 @@ export default function PdfReader() {
   const [method, setMethod] = useState('');
   const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [rate, setRate] = useState(1);
   const generation = useRef(0);
   const speechSession = useRef(0);
+  const pausedRef = useRef(false);
+  const speechPending = useRef(false);
+  const resumeWaiters = useRef<Array<() => void>>([]);
+  const sequenceRun = useRef<Promise<void> | null>(null);
   const pageRef = useRef(0);
   const bookRef = useRef<PdfBook | null>(null);
   const totalRef = useRef(0);
@@ -68,8 +73,13 @@ export default function PdfReader() {
 
   const stop = () => {
     speechSession.current++;
-    Speech.stop();
+    pausedRef.current = false;
+    speechPending.current = false;
+    resumeWaiters.current.splice(0).forEach(resolve => resolve());
+    sequenceRun.current = null;
+    void Speech.stop();
     setSpeaking(false);
+    setPaused(false);
   };
   const move = (target: number) => {
     stop();
@@ -77,6 +87,9 @@ export default function PdfReader() {
     pageRef.current = next;
     setPage(next);
   };
+  const waitUntilResumed = () => pausedRef.current
+    ? new Promise<void>(resolve => resumeWaiters.current.push(resolve))
+    : Promise.resolve();
   const readSequence = async (start: number, session: number) => {
     const item = bookRef.current;
     if (!item) return;
@@ -92,33 +105,56 @@ export default function PdfReader() {
       const chunks = result.text.match(/[\s\S]{1,1200}(?:\s|$)/g) || [result.text];
       for (const chunk of chunks) {
         if (speechSession.current !== session) return;
+        await waitUntilResumed();
+        if (speechSession.current !== session) return;
+        speechPending.current = true;
         await new Promise<void>((resolve, reject) => {
           Speech.speak(chunk, {
             rate: rateRef.current,
-            ...(voiceId ? { voice: voiceId } : {}),
-            onDone: resolve,
-            onStopped: resolve,
-            onError: reject,
+            ...(narrationVoice(voiceId) ? { voice: narrationVoice(voiceId) } : {}),
+            onDone: () => { speechPending.current = false; resolve(); },
+            onStopped: () => { speechPending.current = false; resolve(); },
+            onError: e => { speechPending.current = false; reject(e); },
           });
         });
       }
     }
-    if (speechSession.current === session) setSpeaking(false);
+    if (speechSession.current === session) { setSpeaking(false); setPaused(false); }
   };
   const start = async () => {
     if (!book || busy) return;
-    if (speaking) { stop(); return; }
     try {
       const session = ++speechSession.current;
-      await Speech.stop();
-      if (speechSession.current !== session) return;
       setSpeaking(true);
-      readSequence(pageRef.current, session).catch(e => {
-        if (speechSession.current === session) { setSpeaking(false); Alert.alert('Narration error', String(e)); }
+      sequenceRun.current = readSequence(pageRef.current, session).catch(e => {
+        if (speechSession.current === session) { setSpeaking(false); setPaused(false); Alert.alert('Narration error', String(e)); }
       });
     } catch (e) {
       setSpeaking(false);
       Alert.alert('Narration error', String(e));
+    }
+  };
+  const pause = async () => {
+    if (!speaking || pausedRef.current) return;
+    pausedRef.current = true;
+    setPaused(true);
+    try {
+      if (speechPending.current) await Speech.pause();
+    } catch (e) {
+      pausedRef.current = false;
+      setPaused(false);
+      Alert.alert('Could not pause narration', String(e));
+    }
+  };
+  const resume = async () => {
+    if (!pausedRef.current) return;
+    try {
+      if (speechPending.current) await Speech.resume();
+      pausedRef.current = false;
+      setPaused(false);
+      resumeWaiters.current.splice(0).forEach(resolve => resolve());
+    } catch (e) {
+      Alert.alert('Could not resume narration', String(e));
     }
   };
 
@@ -132,7 +168,10 @@ export default function PdfReader() {
     </ScrollView>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
       <TouchableOpacity disabled={page === 0} onPress={() => move(page - 1)}><Text style={{ fontWeight: '800', color: colors.text }}>← Previous</Text></TouchableOpacity>
-      <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>{speaking ? '■ Stop' : '▶ Read aloud'}</Text></TouchableOpacity>
+      {!speaking ? <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>▶ Read aloud</Text></TouchableOpacity> : <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={paused ? resume : pause} accessibilityRole="button" accessibilityLabel={paused ? 'Resume narration' : 'Pause narration'}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>{paused ? '▶ Resume' : 'Ⅱ Pause'}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={stop} accessibilityRole="button" accessibilityLabel="Stop narration"><Text style={{ fontWeight: '900', color: colors.text, backgroundColor: colors.surface, padding: 10, borderRadius: 10 }}>■ Stop</Text></TouchableOpacity>
+      </View>}
       <TouchableOpacity disabled={page >= total - 1} onPress={() => move(page + 1)}><Text style={{ fontWeight: '800', color: colors.text }}>Next →</Text></TouchableOpacity>
     </View>
     <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: colors.yellow, fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
