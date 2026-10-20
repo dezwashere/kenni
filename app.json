@@ -8,7 +8,9 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.dezwashere.kenni",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "audio"
         ]
@@ -18,6 +20,13 @@
       "expo-router",
       "expo-document-picker",
       "expo-audio"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "75b416eb-f83e-40e4-99c5-2fc401fe0b21"
+      }
+    },
+    "owner": "dezwashere"
   }
 }
