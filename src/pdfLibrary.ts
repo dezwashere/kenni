@@ -39,3 +39,7 @@ export async function savePdfPage(id: string, pageIndex: number) {
   const books = await getPdfBooks();
   await AsyncStorage.setItem(KEY, JSON.stringify(books.map(b => b.id === id ? { ...b, pageIndex } : b)));
 }
+export async function addBundledPdf(book: PdfBook) {
+  const books = await getPdfBooks();
+  await AsyncStorage.setItem(KEY, JSON.stringify([book, ...books.filter(existing => existing.id !== book.id)]));
+}

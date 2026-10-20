@@ -5,7 +5,7 @@ import { Book, downloadBook, getBooks, importBook } from '../src/library';
 import { getPdfBooks, importPdf, PdfBook } from '../src/pdfLibrary';
 import { colors, spacing } from '../src/theme';
 import { Brand } from '../src/Brand';
-import { SAMPLE_COVER_PLACEHOLDER, SAMPLE_LIBRARY } from '../src/sampleLibrary';
+import { openSample, SAMPLE_LIBRARY } from '../src/sampleLibrary';
 
 const palettes = ['#6F3D94', '#3C596F', '#934F67', '#66704A', '#544B83', '#A06B42'];
 function Cover({ title, kind, index, onPress, progress }: { title: string; kind: 'PDF' | 'AUDIO'; index: number; onPress: () => void; progress?: string }) {
@@ -44,16 +44,16 @@ export default function Library() {
     {loading ? <Text style={styles.state}>Opening your shelves…</Text> : error ? <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})}><Text style={styles.state}>{error}  RETRY ↗</Text></Pressable> : null}
     <View style={styles.sectionHead}><View><Text style={styles.sectionKicker}>YOUR NEXT CHAPTER</Text><Text style={styles.sectionTitle}>On the shelf</Text></View><Text style={styles.count}>{pdfs.length + books.length} ITEMS</Text></View>
     {pdfs.length + books.length === 0 ? <View style={styles.emptyBox}><Text style={styles.emptyTitle}>A shelf of your own.</Text><Empty>Bring in a PDF or audiobook to get started.</Empty></View> : <View style={styles.grid}>{pdfs.map((item, i) => <Cover key={`pdf-${item.id}`} title={item.title} kind="PDF" index={i} progress={`PAGE ${item.pageIndex + 1} · CONTINUE`} onPress={() => router.push({ pathname: '/pdf', params: { id: item.id } })}/>)}{books.map((item, i) => <Cover key={`audio-${item.id}`} title={item.title} kind="AUDIO" index={i + pdfs.length} progress={item.position ? `${Math.floor(item.position / 60)} MIN IN · RESUME` : undefined} onPress={() => router.push({ pathname: '/player', params: { id: item.id } })}/>)}</View>}
-    <View style={styles.sectionHead}><View><Text style={styles.sectionKicker}>A FEW THINGS TO DISCOVER</Text><Text style={styles.sectionTitle}>Sample shelf</Text></View><Text style={styles.count}>SOURCE LINKS</Text></View>
-    <View style={styles.sampleGrid}>{SAMPLE_LIBRARY.map((item, i) => <View key={item.id} style={styles.sampleCard}>
-      <Image source={SAMPLE_COVER_PLACEHOLDER} style={styles.sampleCover} resizeMode="cover" />
-      <Text style={styles.sampleKind}>{item.kind === 'audio' ? 'AUDIO SAMPLE' : 'READING SAMPLE'} · NOT BUNDLED</Text>
+    <View style={styles.sectionHead}><View><Text style={styles.sectionKicker}>A FEW THINGS TO DISCOVER</Text><Text style={styles.sectionTitle}>Sample shelf</Text></View><Text style={styles.count}>{SAMPLE_LIBRARY.length} INCLUDED</Text></View>
+    <View style={styles.sampleGrid}>{SAMPLE_LIBRARY.map((item, i) => <Pressable accessibilityRole="button" accessibilityLabel={`${item.kind === 'audio' ? 'Play' : 'Read'} sample: ${item.title}`} onPress={() => run(async () => { const opened = await openSample(item); router.push({ pathname: item.kind === 'audio' ? '/player' : '/pdf', params: { id: opened.id } }); })} key={item.id} style={styles.sampleCard}>
+      <Image source={item.coverAsset} style={styles.sampleCover} resizeMode="cover" />
+      <Text style={styles.sampleKind}>{item.kind === 'audio' ? 'AUDIO SAMPLE' : 'READING SAMPLE'} · INCLUDED</Text>
       <Text style={styles.sampleTitle}>{item.title}</Text><Text style={styles.sampleAuthor}>{item.author}</Text>
-      <Text style={styles.sampleStatus}>Sample link / not bundled</Text>
+      <Text style={styles.sampleStatus}>{item.kind === 'audio' ? 'TAP TO PLAY  ↗' : 'TAP TO READ  ↗'}</Text>
       <Text style={styles.sampleAttribution}>{item.attribution}</Text>
-      <Text style={styles.sampleBlocker}>{item.blocker}</Text>
+      <Text style={styles.sampleBlocker}>{item.rights}</Text>
       <Text style={styles.sampleSource}>{item.sourceName}</Text>
-    </View>)}</View>
+    </Pressable>)}</View>
     <View style={styles.importNote}><Text style={styles.noteKicker}>MAKE YOURSELF AT HOME</Text><Text style={styles.noteTitle}>Your next good thing is one import away.</Text><Text style={styles.noteBody}>Choose a PDF from Files, or bring an audiobook along for the ride.</Text></View>
     <View style={styles.urlRow}><Text style={styles.urlTitle}>AUDIO FROM A LINK</Text><View style={styles.urlInputRow}><TextInput accessibilityLabel="Direct HTTPS audiobook URL" style={styles.urlInput} autoCapitalize="none" keyboardType="url" placeholder="Paste an HTTPS audio URL" placeholderTextColor={colors.muted} value={url} onChangeText={setUrl}/><Pressable accessibilityRole="button" disabled={busy || !url.trim()} onPress={() => run(async () => { await downloadBook(url.trim()); setUrl(''); })} style={styles.linkButton}><Text style={styles.linkText}>{busy ? 'ADDING…' : 'SAVE  ↗'}</Text></Pressable></View></View>
     <View style={styles.footer}><Pressable accessibilityRole="button" onPress={() => router.push('/voices')}><Text style={styles.footerLink}>NARRATORS  ↗</Text></Pressable><Pressable accessibilityRole="button" onPress={() => router.push('/settings')}><Text style={styles.footerLink}>SETTINGS  ↗</Text></Pressable><Text style={styles.footerMark}>KENNI  ·  READ AT YOUR OWN PACE</Text></View>

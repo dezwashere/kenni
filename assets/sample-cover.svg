@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="820" viewBox="0 0 600 820">
+  <rect width="600" height="820" fill="#30263f"/>
+  <circle cx="440" cy="200" r="118" fill="#ddc4f0" opacity=".9"/>
+  <path d="M0 535 Q135 475 270 540 T600 515 V820 H0Z" fill="#526c74"/>
+  <path d="M0 610 Q145 560 290 615 T600 595 V820 H0Z" fill="#354c56"/>
+  <path d="M288 550 L300 345 L312 550Z" fill="#d4b78a"/>
+  <path d="M276 380 Q300 318 324 380Z" fill="#f2d99d"/>
+  <circle cx="300" cy="382" r="12" fill="#fff2c8"/>
+  <text x="48" y="105" fill="#e4d8ee" font-family="Georgia,serif" font-size="19" letter-spacing="5">KENNI ORIGINAL</text>
+  <text x="48" y="700" fill="#fffaf2" font-family="Georgia,serif" font-size="43">The Lantern</text>
+  <text x="48" y="752" fill="#fffaf2" font-family="Georgia,serif" font-size="43">at Low Tide</text>
+</svg>

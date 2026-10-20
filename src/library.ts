@@ -56,3 +56,4 @@ export async function updateProgress(id:string,position:number,duration?:number)
  const books=await getBooks();
  await save(books.map(b=>b.id===id?{...b,position:Math.max(0,position),...(duration!==undefined?{duration}: {})}:b));
 }
+export async function addBundledBook(book:Book){await save([book,...(await getBooks()).filter(existing=>existing.id!==book.id)])}
