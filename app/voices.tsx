@@ -47,12 +47,12 @@ export default function VoicePicker() {
   };
   return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18 }}><Brand compact />
     <Text style={{ fontSize: 30, fontWeight: '900', color: colors.text }}>Choose your narrator.</Text>
-    <Text style={{ marginVertical: 10, color: colors.muted }}>Choose a natural Apple voice for PDF narration. Voice playback works offline.</Text>
+    <Text style={{ marginVertical: 10, color: colors.muted }}>Choose a voice available on this iPhone for PDF narration. Availability and playback can vary by device.</Text>
     {loading ? <ActivityIndicator color={colors.yellow} /> :
       <FlatList data={voices} keyExtractor={v => v.name}
         renderItem={({ item }) => <View style={{ backgroundColor: colors.surface, padding: 14, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
           <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>{item.name} {selected === item.identifier ? '✓' : ''}</Text>
-          <Text style={{ color: '#333', marginTop: 3 }}>{item.available ? `${item.language}${item.quality ? ' · ' + item.quality : ''}` : `${item.language} · iPhone default voice will be used if unavailable`}</Text>
+          <Text style={{ color: colors.muted, marginTop: 3 }}>{item.available ? `${item.language}${item.quality ? ' · ' + item.quality : ''}` : `${item.language} · iPhone default voice will be used if unavailable`}</Text>
           <View style={{ flexDirection: 'row', gap: 18, marginTop: 12 }}>
             <Pressable accessibilityRole="button" onPress={() => play(item)}><Text style={{ color: colors.yellow, fontWeight: '800' }}>{preview === item.identifier ? '■ Stop preview' : '▶ Preview'}</Text></Pressable>
             <Pressable accessibilityRole="button" onPress={() => choose(item)}><Text style={{ color: colors.yellow, fontWeight: '800' }}>{selected === item.identifier ? 'Selected' : 'Use this voice'}</Text></Pressable>
