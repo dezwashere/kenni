@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
-import { useFocusEffect, router } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { availableNarrators, savedNarrator, saveNarrator, VOICE_PREVIEW, type NarratorVoice } from '../src/voices';
 
