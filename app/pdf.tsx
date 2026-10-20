@@ -5,7 +5,6 @@ import { savedAvailableNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
-import { purchaseSubscription, restoreSubscription, subscriptionOffers, subscriptionStatus } from '../src/store';
 
 export default function PdfReader() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,24 +15,18 @@ export default function PdfReader() {
   const [method, setMethod] = useState('');
   const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [premium, setPremium] = useState(false);
-  const [price, setPrice] = useState('View subscription');
   const [rate, setRate] = useState(1);
   const generation = useRef(0);
   const speechSession = useRef(0);
   const pageRef = useRef(0);
   const bookRef = useRef<PdfBook | null>(null);
   const totalRef = useRef(0);
-  const premiumRef = useRef(false);
   const rateRef = useRef(1);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    subscriptionStatus().then(s => { if (active) { setPremium(s.pdfReadAloud); premiumRef.current = s.pdfReadAloud; } })
-      .catch(() => { if (active) { setPremium(false); premiumRef.current = false; } });
-    subscriptionOffers().then(o => { if (active && o[0]) setPrice(o[0].price); }).catch(() => {});
     savedAvailableNarrator().then(v => { if (active) setVoiceId(v); }).catch(() => {});
     return () => { active = false; };
   }, []));
@@ -83,9 +76,6 @@ export default function PdfReader() {
     if (!item) return;
     for (let index = start; index < totalRef.current; index++) {
       if (speechSession.current !== session) return;
-      // Revalidate the Apple-verified subscription at each page boundary.
-      const status = await subscriptionStatus();
-      if (!status.pdfReadAloud) { premiumRef.current = false; setPremium(false); setSpeaking(false); return; }
       const result = await pdfReadPage(item.uri, index);
       if (speechSession.current !== session) return;
       pageRef.current = index;
@@ -113,15 +103,6 @@ export default function PdfReader() {
     if (!book || busy) return;
     if (speaking) { stop(); return; }
     try {
-      const status = await subscriptionStatus();
-      setPremium(status.pdfReadAloud); premiumRef.current = status.pdfReadAloud;
-      if (!status.pdfReadAloud) {
-        Alert.alert('kenni Premium', 'Unlock PDF read-aloud with a subscription. Manual PDF reading stays free.', [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Subscribe', onPress: () => { subscribe(); } },
-        ]);
-        return;
-      }
       const session = ++speechSession.current;
       await Speech.stop();
       if (speechSession.current !== session) return;
@@ -129,23 +110,10 @@ export default function PdfReader() {
       readSequence(pageRef.current, session).catch(e => {
         if (speechSession.current === session) { setSpeaking(false); Alert.alert('Narration error', String(e)); }
       });
-    } catch (e) { Alert.alert('Subscription error', String(e)); }
-  };
-  const subscribe = async () => {
-    try {
-      const offers = await subscriptionOffers();
-      if (!offers[0]) { Alert.alert('Subscriptions unavailable', 'Configure the PDF narration product in App Store Connect before purchasing.'); return; }
-      const status = await purchaseSubscription(offers[0]?.id || '');
-      setPremium(status.pdfReadAloud); premiumRef.current = status.pdfReadAloud;
-      if (status.pdfReadAloud) Alert.alert('kenni', 'PDF narration is unlocked.');
-    } catch (e) { Alert.alert('Subscription unavailable', String(e)); }
-  };
-  const restore = async () => {
-    try {
-      const status = await restoreSubscription();
-      setPremium(status.pdfReadAloud); premiumRef.current = status.pdfReadAloud;
-      Alert.alert('Restore purchases', status.pdfReadAloud ? 'Subscription restored.' : 'No active PDF narration subscription found.');
-    } catch (e) { Alert.alert('Restore failed', String(e)); }
+    } catch (e) {
+      setSpeaking(false);
+      Alert.alert('Narration error', String(e));
+    }
   };
 
   if (error) return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18, justifyContent: 'center' }}><Text style={{ fontSize: 26, fontWeight: '900', color: '#111' }}>PDF unavailable</Text><Text style={{ color: '#111', marginTop: 10 }}>{error}</Text><TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: '#111', fontWeight: '900' }}>← Back to library</Text></TouchableOpacity></View>;
@@ -163,8 +131,7 @@ export default function PdfReader() {
     <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: '#111', fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
       <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: '#111' }}>Voice speed {rate.toFixed(1)}×</Text></TouchableOpacity>
-      {premium ? <Text style={{ fontWeight: '800', color: '#111' }}>Premium active</Text> : <TouchableOpacity onPress={subscribe}><Text style={{ fontWeight: '800', color: '#111' }}>Unlock · {price}</Text></TouchableOpacity>}
-      <TouchableOpacity onPress={restore}><Text style={{ color: '#111' }}>Restore</Text></TouchableOpacity>
+      <Text style={{ fontWeight: '800', color: '#111' }}>Narration available</Text>
     </View>
   </View>;
 }

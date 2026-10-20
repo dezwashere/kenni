@@ -45,7 +45,7 @@ export default function VoicePicker() {
   const filtered = voices.filter(v => (v.name + ' ' + v.language).toLowerCase().includes(query.toLowerCase()));
   return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18 }}>
     <Text style={{ fontSize: 30, fontWeight: '900', color: '#111' }}>Choose your narrator.</Text>
-    <Text style={{ marginVertical: 10, color: '#222' }}>Preview voices for free. PDF narration requires Premium.</Text>
+    <Text style={{ marginVertical: 10, color: '#222' }}>Preview and use Apple voices for PDF narration.</Text>
     <TextInput accessibilityLabel="Search voices" placeholder="Search name or language" placeholderTextColor="#555" value={query} onChangeText={setQuery}
       style={{ backgroundColor: '#FFF4A0', padding: 14, borderRadius: 10, color: '#111', marginBottom: 12 }} />
     {loading ? <ActivityIndicator color="#111" /> :

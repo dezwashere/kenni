@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Image, ImageStyle, StyleSheet, Text, View } from 'react-native';
 import { colors } from './theme';
+
+const approvedLockup = require('../assets/kenni-approved-lockup.png');
 
 export function KenniIcon({ size = 44 }: { size?: number }) {
   return <View style={[styles.icon, { width: size, height: size, borderRadius: size * 0.22 }]} accessibilityLabel="kenni open book icon">
@@ -11,13 +13,15 @@ export function KenniIcon({ size = 44 }: { size?: number }) {
   </View>;
 }
 
-export function Brand({ compact = false, style }: { compact?: boolean; style?: ViewStyle }) {
-  const iconSize = compact ? 32 : 44;
-  return <View style={[styles.lockup, style]} accessibilityLabel="kenni"><Text style={[styles.wordmark, compact && styles.compactWordmark]}>kenni</Text><KenniIcon size={iconSize}/></View>;
+export function Brand({ compact = false, style }: { compact?: boolean; style?: ImageStyle }) {
+  return <Image source={approvedLockup} resizeMode="contain" accessibilityLabel="kenni approved wordmark and icon" style={[styles.approvedLogo, compact ? styles.compactLogo : styles.fullLogo, style]} />;
 }
 
 const styles = StyleSheet.create({
   lockup: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  approvedLogo: { marginLeft: -10 },
+  fullLogo: { width: 290, height: 150 },
+  compactLogo: { width: 210, height: 112 },
   icon: { backgroundColor: colors.yellow, alignItems: 'center', justifyContent: 'center' },
   page: { position: 'absolute', backgroundColor: colors.background, borderRadius: 4 },
   leftPage: { transform: [{ rotate: '-14deg' }] },

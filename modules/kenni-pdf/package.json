@@ -8,8 +8,7 @@
     "autolinking": {
       "ios": {
         "modules": [
-          "KenniPdfModule",
-          "KenniStoreModule"
+          "KenniPdfModule"
         ]
       }
     }
