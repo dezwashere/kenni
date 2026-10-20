@@ -18,12 +18,10 @@
 - Try encrypted and malformed PDFs; verify helpful errors.
 - Try large documents and confirm memory use is acceptable.
 
-## Paid narration
-- The button must **not** play speech before a verified active subscription.
-- Connect StoreKit subscription purchase and restore flow.
-- Validate entitlement on startup, after purchase, after restore, and after expiry.
-- Only then implement continuous read-aloud, voice selection, speech progress and background playback.
-- Check App Store Connect localized price rather than trusting the hard-coded display string.
+## Free narration
+- Confirm the read-aloud button starts and stops speech without an access gate.
+- Confirm continuous read-aloud advances through PDF pages and preserves reading progress.
+- Confirm voice selection, speech progress, playback speed, and background behavior on a physical iPhone.
 
 ## Known gaps
 - Current reader shows extracted text, not original page layout.

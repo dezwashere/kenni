@@ -45,7 +45,9 @@ public class KenniPdfModule: Module {
 
   private func openDocument(_ uri: String) throws -> PDFDocument {
     guard let url = URL(string: uri), url.isFileURL,
+          FileManager.default.fileExists(atPath: url.path),
           let document = PDFDocument(url: url) else { throw PdfReaderError.invalidFile }
+    guard document.pageCount > 0 else { throw PdfReaderError.emptyFile }
     // PDFKit does not expose `isUnlocked` on all iOS SDK versions. An empty
     // password check preserves support for unprotected PDFs while rejecting
     // documents that still require a password.
@@ -58,6 +60,7 @@ public class KenniPdfModule: Module {
 
 private enum PdfReaderError: String, Error {
   case invalidFile = "Unable to open PDF file"
+  case emptyFile = "PDF does not contain any pages"
   case lockedFile = "PDF is password protected"
   case invalidPage = "Page is outside PDF bounds"
   case renderFailed = "Unable to render PDF page for OCR"

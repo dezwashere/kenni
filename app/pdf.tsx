@@ -5,6 +5,8 @@ import { savedAvailableNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
+import { Brand } from '../src/Brand';
+import { colors } from '../src/theme';
 
 export default function PdfReader() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +26,7 @@ export default function PdfReader() {
   const rateRef = useRef(1);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -35,15 +38,18 @@ export default function PdfReader() {
     let active = true;
     (async () => {
       try {
+        setLoading(true); setError(null);
         const item = (await getPdfBooks()).find(b => b.id === id);
         if (!item) throw new Error('PDF not found');
         const count = await pdfPageCount(item.uri);
+        if (count < 1) throw new Error('PDF does not contain any pages');
         if (!active) return;
         setBook(item); bookRef.current = item;
         setTotal(count); totalRef.current = count;
         const initial = Math.max(0, Math.min(item.pageIndex, count - 1));
         setPage(initial); pageRef.current = initial;
-      } catch (e) { if (active) setError(String(e)); }
+      } catch (e) { if (active) setError(e instanceof Error ? e.message : String(e)); }
+      finally { if (active) setLoading(false); }
     })();
     return () => { active = false; generation.current++; speechSession.current++; void Speech.stop(); };
   }, [id]);
@@ -51,12 +57,12 @@ export default function PdfReader() {
   useEffect(() => {
     if (!book) return;
     const current = ++generation.current;
-    setBusy(true); setText(''); setMethod('');
+    setBusy(true); setError(null); setText(''); setMethod('');
     pdfReadPage(book.uri, page).then(result => {
       if (generation.current !== current) return;
       setText(result.text); setMethod(result.method);
       savePdfPage(book.id, page).catch(() => {});
-    }).catch(e => { if (generation.current === current) Alert.alert('Reading error', String(e)); })
+    }).catch(e => { if (generation.current === current) setError(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (generation.current === current) setBusy(false); });
   }, [book?.id, page]);
 
@@ -116,22 +122,23 @@ export default function PdfReader() {
     }
   };
 
-  if (error) return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18, justifyContent: 'center' }}><Text style={{ fontSize: 26, fontWeight: '900', color: '#111' }}>PDF unavailable</Text><Text style={{ color: '#111', marginTop: 10 }}>{error}</Text><TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: '#111', fontWeight: '900' }}>← Back to library</Text></TouchableOpacity></View>;
-  return <View style={{ flex: 1, backgroundColor: '#FFD500', padding: 18 }}>
-    <Text style={{ fontSize: 26, fontWeight: '900', color: '#111' }} numberOfLines={2}>{book?.title || 'PDF Reader'}</Text>
-    <Text style={{ color: '#111', marginVertical: 10 }}>Page {page + 1} / {total || '…'} {method === 'ocr' ? '· OCR' : method ? '· Text' : ''}</Text>
-    <ScrollView style={{ flex: 1, backgroundColor: '#FFF9E8', borderRadius: 12, padding: 18 }}>
-      {busy ? <ActivityIndicator /> : <Text selectable style={{ color: '#111', fontSize: 18, lineHeight: 29 }}>{text || 'No readable text on this page.'}</Text>}
+  if (loading) return <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.yellow} /><Text style={{ color: colors.text, marginTop: 12 }}>Opening PDF…</Text></View>;
+  if (error) return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18, justifyContent: 'center' }}><Text style={{ fontSize: 26, fontWeight: '900', color: colors.text }}>PDF unavailable</Text><Text style={{ color: colors.muted, marginTop: 10 }}>{error}</Text><TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: colors.yellow, fontWeight: '900' }}>← Back to library</Text></TouchableOpacity></View>;
+  return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18 }}><Brand compact />
+    <Text style={{ fontSize: 26, fontWeight: '900', color: colors.text }} numberOfLines={2}>{book?.title || 'PDF Reader'}</Text>
+    <Text style={{ color: colors.muted, marginVertical: 10 }}>Page {page + 1} / {total || '…'} {method === 'ocr' ? '· OCR' : method ? '· Text' : ''}</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 12, padding: 18 }}>
+      {busy ? <View><ActivityIndicator color={colors.yellow} /><Text style={{ color: colors.muted, textAlign: 'center', marginTop: 10 }}>Extracting page…</Text></View> : <Text selectable style={{ color: colors.text, fontSize: 18, lineHeight: 29 }}>{text || 'No readable text on this page.'}</Text>}
     </ScrollView>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
-      <TouchableOpacity disabled={page === 0} onPress={() => move(page - 1)}><Text style={{ fontWeight: '800', color: '#111' }}>← Previous</Text></TouchableOpacity>
-      <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: '#111' }}>{speaking ? '■ Stop' : '▶ Read aloud'}</Text></TouchableOpacity>
-      <TouchableOpacity disabled={page >= total - 1} onPress={() => move(page + 1)}><Text style={{ fontWeight: '800', color: '#111' }}>Next →</Text></TouchableOpacity>
+      <TouchableOpacity disabled={page === 0} onPress={() => move(page - 1)}><Text style={{ fontWeight: '800', color: colors.text }}>← Previous</Text></TouchableOpacity>
+      <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>{speaking ? '■ Stop' : '▶ Read aloud'}</Text></TouchableOpacity>
+      <TouchableOpacity disabled={page >= total - 1} onPress={() => move(page + 1)}><Text style={{ fontWeight: '800', color: colors.text }}>Next →</Text></TouchableOpacity>
     </View>
-    <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: '#111', fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: colors.yellow, fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
-      <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: '#111' }}>Voice speed {rate.toFixed(1)}×</Text></TouchableOpacity>
-      <Text style={{ fontWeight: '800', color: '#111' }}>Narration available</Text>
+      <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: colors.text }}>Voice speed {rate.toFixed(1)}×</Text></TouchableOpacity>
+      <Text style={{ fontWeight: '800', color: colors.yellow }}>Narration available</Text>
     </View>
   </View>;
 }
