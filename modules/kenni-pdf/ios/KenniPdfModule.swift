@@ -46,7 +46,12 @@ public class KenniPdfModule: Module {
   private func openDocument(_ uri: String) throws -> PDFDocument {
     guard let url = URL(string: uri), url.isFileURL,
           let document = PDFDocument(url: url) else { throw PdfReaderError.invalidFile }
-    if document.isEncrypted && !document.isUnlocked { throw PdfReaderError.lockedFile }
+    // PDFKit does not expose `isUnlocked` on all iOS SDK versions. An empty
+    // password check preserves support for unprotected PDFs while rejecting
+    // documents that still require a password.
+    if document.isEncrypted && !document.unlock(withPassword: "") {
+      throw PdfReaderError.lockedFile
+    }
     return document
   }
 }
