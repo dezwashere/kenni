@@ -9,6 +9,7 @@ iOS audiobook and PDF reader, using a bold yellow-and-black design.
 - Native PDFKit text extraction, with Apple Vision OCR for image-only pages
 - Read extracted PDF text with a simple accessible reader
 - Continuous PDF text-to-speech across pages with playback speed and stop controls
+- Device voice catalog, searchable narrator selection, free voice previews and saved preference
 - StoreKit 2 subscription offer, purchase, restore and verified current-entitlement checks
 
 ## Required setup
