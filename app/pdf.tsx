@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
+import { savedNarrator } from '../src/voices';
 import * as Speech from 'expo-speech';
 import { getPdfBooks, savePdfPage, type PdfBook } from '../src/pdfLibrary';
 import { pdfPageCount, pdfReadPage } from '../src/pdf';
@@ -25,12 +26,14 @@ export default function PdfReader() {
   const totalRef = useRef(0);
   const premiumRef = useRef(false);
   const rateRef = useRef(1);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     subscriptionStatus().then(s => { if (active) { setPremium(s.pdfReadAloud); premiumRef.current = s.pdfReadAloud; } })
       .catch(() => { if (active) { setPremium(false); premiumRef.current = false; } });
     subscriptionOffer().then(o => { if (active) setPrice(o.price + ' / month'); }).catch(() => {});
+    savedNarrator().then(v => { if (active) setVoiceId(v); }).catch(() => {});
     return () => { active = false; };
   }, []));
 
@@ -95,6 +98,7 @@ export default function PdfReader() {
         await new Promise<void>((resolve, reject) => {
           Speech.speak(chunk, {
             rate: rateRef.current,
+            ...(voiceId ? { voice: voiceId } : {}),
             onDone: resolve,
             onStopped: resolve,
             onError: reject,
@@ -150,6 +154,7 @@ export default function PdfReader() {
       <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: '#111' }}>{speaking ? '■ Stop' : '▶ Read aloud'}</Text></TouchableOpacity>
       <TouchableOpacity disabled={page >= total - 1} onPress={() => move(page + 1)}><Text style={{ fontWeight: '800', color: '#111' }}>Next →</Text></TouchableOpacity>
     </View>
+    <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: '#111', fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
       <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: '#111' }}>Voice speed {rate.toFixed(1)}×</Text></TouchableOpacity>
       {premium ? <Text style={{ fontWeight: '800', color: '#111' }}>Premium active</Text> : <TouchableOpacity onPress={subscribe}><Text style={{ fontWeight: '800', color: '#111' }}>Unlock · {price}</Text></TouchableOpacity>}
