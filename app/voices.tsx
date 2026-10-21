@@ -1,62 +1,59 @@
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { setAudioModeAsync } from 'expo-audio';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { availableNarrators, savedAvailableNarrator, saveNarrator, VOICE_PREVIEW, type NarratorVoice } from '../src/voices';
+import { availableNarrators, saveNarrator, VOICE_PREVIEW, type NarratorVoice } from '../src/voices';
 import { Brand } from '../src/Brand';
 import { colors } from '../src/theme';
 
 export default function VoicePicker() {
-  const [voices, setVoices] = useState<NarratorVoice[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [voice, setVoice] = useState<NarratorVoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
   const previewRun = useRef(0);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     setLoading(true);
-    Promise.all([availableNarrators(), savedAvailableNarrator()])
-      .then(([list, id]) => { if (active) { setVoices(list); setSelected(id); } })
-      .catch(e => { if (active) Alert.alert('Voices unavailable', String(e)); })
+    availableNarrators().then(async list => {
+      if (!active) return;
+      const selected = list[0] ?? null;
+      setVoice(selected);
+      if (selected) await saveNarrator(selected.identifier);
+    }).catch(e => { if (active) Alert.alert('Voice unavailable', String(e)); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; previewRun.current++; void Speech.stop(); setPreview(null); };
+    return () => { active = false; previewRun.current++; void Speech.stop(); setPreview(false); };
   }, []));
 
-  const play = async (voice: NarratorVoice) => {
+  const togglePreview = async () => {
     const run = ++previewRun.current;
     try {
       await Speech.stop();
-      if (preview === voice.identifier) { setPreview(null); return; }
+      if (preview) { setPreview(false); return; }
       await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'doNotMix' });
-      setPreview(voice.identifier);
-      Speech.speak(VOICE_PREVIEW, {
-        voice: voice.identifier,
-        language: voice.language,
-        rate: 0.95,
-        onDone: () => { if (previewRun.current === run) setPreview(null); },
-        onStopped: () => { if (previewRun.current === run) setPreview(null); },
-        onError: () => { if (previewRun.current === run) setPreview(null); },
+      setPreview(true);
+      Speech.speak(VOICE_PREVIEW, { ...(voice?.available ? { voice: voice.identifier } : {}), language: voice?.language ?? 'en-US', rate: 0.95,
+        onDone: () => { if (previewRun.current === run) setPreview(false); },
+        onStopped: () => { if (previewRun.current === run) setPreview(false); },
+        onError: () => { if (previewRun.current === run) setPreview(false); },
       });
-    } catch (e) { if (previewRun.current === run) setPreview(null); Alert.alert('Preview failed', String(e)); }
+    } catch (e) { if (previewRun.current === run) setPreview(false); Alert.alert('Preview failed', String(e)); }
   };
-  const choose = async (voice: NarratorVoice) => {
-    try { await saveNarrator(voice.identifier); setSelected(voice.identifier); }
-    catch (e) { Alert.alert('Could not save voice', String(e)); }
-  };
-  return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18 }}><Brand compact />
-    <Text style={{ fontSize: 30, fontWeight: '900', color: colors.text }}>Choose your narrator.</Text>
-    <Text style={{ marginVertical: 10, color: colors.muted }}>Choose a voice available on this iPhone for PDF narration. Availability and playback can vary by device.</Text>
-    {loading ? <ActivityIndicator color={colors.yellow} /> :
-      <FlatList data={voices} keyExtractor={v => v.name}
-        renderItem={({ item }) => <View style={{ backgroundColor: colors.surface, padding: 14, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>{item.name} {selected === item.identifier ? '✓' : ''}</Text>
-          <Text style={{ color: colors.muted, marginTop: 3 }}>{item.available ? `${item.language}${item.quality ? ' · ' + item.quality : ''}` : `${item.language} · iPhone default voice will be used if unavailable`}</Text>
-          <View style={{ flexDirection: 'row', gap: 18, marginTop: 12 }}>
-            <Pressable accessibilityRole="button" onPress={() => play(item)}><Text style={{ color: colors.yellow, fontWeight: '800' }}>{preview === item.identifier ? '■ Stop preview' : '▶ Preview'}</Text></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => choose(item)}><Text style={{ color: colors.yellow, fontWeight: '800' }}>{selected === item.identifier ? 'Selected' : 'Use this voice'}</Text></Pressable>
-          </View>
-        </View>} />}
+
+  return <View style={{ flex: 1, backgroundColor: colors.background, padding: 22 }}>
+    <Brand compact />
+    <Text style={{ color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 40 }}>READING & LISTENING</Text>
+    <Text style={{ color: colors.text, fontSize: 36, fontWeight: '400', letterSpacing: -1.2, marginTop: 8 }}>One quiet voice.</Text>
+    <Text style={{ color: colors.muted, fontSize: 15, lineHeight: 23, marginTop: 10 }}>Kenni uses a built-in Apple voice. It works offline and stays on this iPhone.</Text>
+    {loading ? <ActivityIndicator color={colors.accent} style={{ marginTop: 28 }} /> : voice ? <View style={{ marginTop: 28, paddingVertical: 22, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border }}>
+      <Text style={{ color: colors.text, fontSize: 21, fontWeight: '500' }}>{voice.name}</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>{voice.language}{voice.quality ? ` · ${voice.quality}` : ''} · Built in</Text>
+      <Text style={{ color: colors.accent, marginTop: 16, fontSize: 12 }}>{voice.available ? 'Saved as your narrator' : 'Apple’s built-in English voice will be used'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={preview ? 'Stop voice preview' : 'Preview voice'} onPress={togglePreview} style={{ alignSelf: 'flex-start', marginTop: 20, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.accent, borderRadius: 4 }}>
+        <Text style={{ color: colors.background, fontWeight: '700' }}>{preview ? 'Ⅱ  Stop preview' : '▶  Preview voice'}</Text>
+      </Pressable>
+    </View> : null}
+    <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ marginTop: 'auto', minHeight: 48, justifyContent: 'center' }}><Text style={{ color: colors.accent, fontWeight: '600' }}>←  Back to your book</Text></Pressable>
   </View>;
 }

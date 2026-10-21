@@ -107,11 +107,12 @@ export default function PdfReader() {
         if (speechSession.current !== session) return;
         await waitUntilResumed();
         if (speechSession.current !== session) return;
+        const selectedVoice = await narrationVoice(voiceId);
         speechPending.current = true;
         await new Promise<void>((resolve, reject) => {
           Speech.speak(chunk, {
             rate: rateRef.current,
-            ...(narrationVoice(voiceId) ? { voice: narrationVoice(voiceId) } : {}),
+            ...(selectedVoice ? { voice: selectedVoice } : {}),
             onDone: () => { speechPending.current = false; resolve(); },
             onStopped: () => { speechPending.current = false; resolve(); },
             onError: e => { speechPending.current = false; reject(e); },
@@ -160,24 +161,24 @@ export default function PdfReader() {
 
   if (loading) return <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.yellow} /><Text style={{ color: colors.text, marginTop: 12 }}>Opening PDF…</Text></View>;
   if (error) return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18, justifyContent: 'center' }}><Text style={{ fontSize: 26, fontWeight: '900', color: colors.text }}>PDF unavailable</Text><Text style={{ color: colors.muted, marginTop: 10 }}>{error}</Text><TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: colors.yellow, fontWeight: '900' }}>← Back to library</Text></TouchableOpacity></View>;
-  return <View style={{ flex: 1, backgroundColor: colors.background, padding: 18 }}><Brand compact />
-    <Text style={{ fontSize: 26, fontWeight: '900', color: colors.text }} numberOfLines={2}>{book?.title || 'PDF Reader'}</Text>
-    <Text style={{ color: colors.muted, marginVertical: 10 }}>Page {page + 1} / {total || '…'} {method === 'ocr' ? '· OCR' : method ? '· Text' : ''}</Text>
-    <ScrollView style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 12, padding: 18 }}>
+  return <View style={{ flex: 1, backgroundColor: colors.background, padding: 22 }}><Brand compact />
+    <Text style={{ fontSize: 25, fontWeight: '500', color: colors.text, marginTop: 18 }} numberOfLines={2}>{book?.title || 'PDF Reader'}</Text>
+    <Text style={{ color: colors.muted, marginVertical: 10, fontSize: 12 }}>Page {page + 1} / {total || '…'}</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 5, padding: 22 }}>
       {busy ? <View><ActivityIndicator color={colors.yellow} /><Text style={{ color: colors.muted, textAlign: 'center', marginTop: 10 }}>Extracting page…</Text></View> : <Text selectable style={{ color: colors.text, fontSize: 18, lineHeight: 29 }}>{text || 'No readable text on this page.'}</Text>}
     </ScrollView>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
       <TouchableOpacity disabled={page === 0} onPress={() => move(page - 1)}><Text style={{ fontWeight: '800', color: colors.text }}>← Previous</Text></TouchableOpacity>
-      {!speaking ? <TouchableOpacity onPress={start}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>▶ Read aloud</Text></TouchableOpacity> : <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity onPress={paused ? resume : pause} accessibilityRole="button" accessibilityLabel={paused ? 'Resume narration' : 'Pause narration'}><Text style={{ fontWeight: '900', color: colors.background, backgroundColor: colors.yellow, padding: 10, borderRadius: 10 }}>{paused ? '▶ Resume' : 'Ⅱ Pause'}</Text></TouchableOpacity>
-        <TouchableOpacity onPress={stop} accessibilityRole="button" accessibilityLabel="Stop narration"><Text style={{ fontWeight: '900', color: colors.text, backgroundColor: colors.surface, padding: 10, borderRadius: 10 }}>■ Stop</Text></TouchableOpacity>
+      {!speaking ? <TouchableOpacity onPress={start}><Text style={{ fontWeight: '700', color: colors.background, backgroundColor: colors.accent, paddingVertical: 11, paddingHorizontal: 16, borderRadius: 4 }}>▶  Listen</Text></TouchableOpacity> : <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={paused ? resume : pause} accessibilityRole="button" accessibilityLabel={paused ? 'Resume narration' : 'Pause narration'}><Text style={{ fontWeight: '700', color: colors.background, backgroundColor: colors.accent, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 4 }}>{paused ? '▶  Resume' : 'Ⅱ  Pause'}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={stop} accessibilityRole="button" accessibilityLabel="Stop narration"><Text style={{ fontWeight: '600', color: colors.text, backgroundColor: colors.surface, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 4 }}>Stop</Text></TouchableOpacity>
       </View>}
       <TouchableOpacity disabled={page >= total - 1} onPress={() => move(page + 1)}><Text style={{ fontWeight: '800', color: colors.text }}>Next →</Text></TouchableOpacity>
     </View>
-    <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: colors.yellow, fontWeight: '800' }}>Narrator: {voiceId ? 'Selected voice' : 'System default'} · Change voice →</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => { stop(); router.push('/voices'); }} style={{ marginTop: 14 }}><Text style={{ color: colors.accent, fontWeight: '600' }}>Voice: {voiceId ? 'Apple · English' : 'Apple built-in'}  ·  Preview →</Text></TouchableOpacity>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
-      <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: colors.text }}>Voice speed {rate.toFixed(1)}×</Text></TouchableOpacity>
-      <Text style={{ fontWeight: '800', color: colors.yellow }}>Narration available</Text>
+      <TouchableOpacity onPress={() => { const next = rate >= 1.5 ? 0.8 : Math.round((rate + 0.1) * 10) / 10; setRate(next); rateRef.current = next; }}><Text style={{ color: colors.text }}>Listening speed  {rate.toFixed(1)}×  ↻</Text></TouchableOpacity>
+      <Text style={{ color: colors.muted, fontSize: 12 }}>{speaking ? paused ? 'Paused' : 'Reading aloud' : 'Ready when you are'}</Text>
     </View>
   </View>;
 }

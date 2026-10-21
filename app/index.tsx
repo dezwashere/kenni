@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Book, downloadBook, getBooks, importBook } from '../src/library';
 import { getPdfBooks, importPdf, PdfBook } from '../src/pdfLibrary';
@@ -9,23 +9,13 @@ import { openSample, SAMPLE_LIBRARY } from '../src/sampleLibrary';
 
 const palettes = ['#6F3D94', '#3C596F', '#934F67', '#66704A', '#544B83', '#A06B42'];
 function Cover({ title, kind, index, onPress, progress }: { title: string; kind: 'PDF' | 'AUDIO'; index: number; onPress: () => void; progress?: string }) {
-  const drift = useRef(new Animated.Value(index % 2 ? 1 : 0)).current;
-  useEffect(() => {
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(drift, { toValue: 1, duration: 4300 + (index % 3) * 500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(drift, { toValue: 0, duration: 4300 + (index % 3) * 500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]));
-    animation.start();
-    return () => animation.stop();
-  }, [drift, index]);
-  const sway = drift.interpolate({ inputRange: [0, 1], outputRange: [index % 2 ? 1.5 : -1.5, index % 2 ? -1.5 : 1.5] });
   return <Pressable accessibilityRole="button" accessibilityLabel={`${kind === 'PDF' ? 'Read' : 'Play'} ${title}`} onPress={onPress} style={styles.coverPress}>
-    <Animated.View style={[styles.cover, { backgroundColor: palettes[index % palettes.length], transform: [{ translateY: sway }, { rotate: `${index % 2 ? 2 : -2}deg` }] }]}>
+    <View style={[styles.cover, { backgroundColor: palettes[index % palettes.length] }]}>
       <View style={styles.coverRule} />
       <Text style={styles.coverKind}>{kind === 'PDF' ? 'ON THE PAGE' : 'AUDIO EDITION'}</Text>
       <Text numberOfLines={4} style={styles.coverTitle}>{title}</Text>
       <View style={styles.coverBottom}><Text style={styles.coverInitial}>{title.trim().charAt(0).toUpperCase() || 'K'}</Text><Text style={styles.coverAction}>{kind === 'PDF' ? 'OPEN  ↗' : 'PLAY  ↗'}</Text></View>
-    </Animated.View>
+    </View>
     <Text numberOfLines={1} style={styles.itemTitle}>{title}</Text>
     <Text style={styles.itemMeta}>{progress || (kind === 'PDF' ? 'PDF · KEEP READING' : 'AUDIOBOOK · READY')}</Text>
   </Pressable>;
@@ -39,7 +29,7 @@ export default function Library() {
   async function run(action: () => Promise<unknown>) { setBusy(true); try { await action(); await refresh(); } catch (e) { Alert.alert('kenni', String(e)); } finally { setBusy(false); } }
   return <ScrollView style={styles.page} contentContainerStyle={styles.content}>
     <View style={styles.masthead}><Brand compact /><Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={() => router.push('/profile')} style={styles.profile}><Text style={styles.profileText}>PROFILE  ↗</Text></Pressable></View>
-    <View style={styles.intro}><Text style={styles.eyebrow}>A LITTLE SPACE TO GET LOST</Text><Text style={styles.heading}>The library<Text style={styles.headingDot}>.</Text></Text><Text style={styles.subtitle}>Stories to sit with. Ideas to carry.</Text></View>
+    <View style={styles.intro}><Text style={styles.heading}>Your library<Text style={styles.headingDot}>.</Text></Text><Text style={styles.subtitle}>Pick up where you left off.</Text></View>
     <View style={styles.actions}><Pressable accessibilityRole="button" disabled={busy} onPress={() => run(importPdf)} style={[styles.primary, busy && styles.disabled]}><Text style={styles.primaryText}>＋  Add a book</Text></Pressable><Pressable accessibilityRole="button" disabled={busy} onPress={() => run(importBook)} style={[styles.secondary, busy && styles.disabled]}><Text style={styles.secondaryText}>＋  Audiobook</Text></Pressable></View>
     {loading ? <Text style={styles.state}>Opening your shelves…</Text> : error ? <Pressable accessibilityRole="button" onPress={() => refresh().catch(() => {})}><Text style={styles.state}>{error}  RETRY ↗</Text></Pressable> : null}
     <View style={styles.sectionHead}><View><Text style={styles.sectionKicker}>YOUR NEXT CHAPTER</Text><Text style={styles.sectionTitle}>On the shelf</Text></View><Text style={styles.count}>{pdfs.length + books.length} ITEMS</Text></View>
@@ -47,14 +37,10 @@ export default function Library() {
     <View style={styles.sectionHead}><View><Text style={styles.sectionKicker}>A FEW THINGS TO DISCOVER</Text><Text style={styles.sectionTitle}>Sample shelf</Text></View><Text style={styles.count}>{SAMPLE_LIBRARY.length} INCLUDED</Text></View>
     <View style={styles.sampleGrid}>{SAMPLE_LIBRARY.map((item, i) => <Pressable accessibilityRole="button" accessibilityLabel={`${item.kind === 'audio' ? 'Play' : 'Read'} sample: ${item.title}`} onPress={() => run(async () => { const opened = await openSample(item); router.push({ pathname: item.kind === 'audio' ? '/player' : '/pdf', params: { id: opened.id } }); })} key={item.id} style={styles.sampleCard}>
       <Image source={item.coverAsset} style={styles.sampleCover} resizeMode="cover" />
-      <Text style={styles.sampleKind}>{item.kind === 'audio' ? 'AUDIO SAMPLE' : 'READING SAMPLE'} · INCLUDED</Text>
+      <Text style={styles.sampleKind}>{item.kind === 'audio' ? 'AUDIO SAMPLE' : item.sourceName.startsWith('Opening excerpt') ? 'PUBLIC-DOMAIN EXCERPT' : 'READING SAMPLE'} · INCLUDED</Text>
       <Text style={styles.sampleTitle}>{item.title}</Text><Text style={styles.sampleAuthor}>{item.author}</Text>
-      <Text style={styles.sampleStatus}>{item.kind === 'audio' ? 'TAP TO PLAY  ↗' : 'TAP TO READ  ↗'}</Text>
-      <Text style={styles.sampleAttribution}>{item.attribution}</Text>
-      <Text style={styles.sampleBlocker}>{item.rights}</Text>
-      <Text style={styles.sampleSource}>{item.sourceName}</Text>
+      <Text style={styles.sampleStatus}>{item.kind === 'audio' ? 'TAP TO PLAY  ↗' : item.sourceName.startsWith('Opening excerpt') ? 'TAP TO READ EXCERPT  ↗' : 'TAP TO READ  ↗'}</Text>
     </Pressable>)}</View>
-    <View style={styles.importNote}><Text style={styles.noteKicker}>MAKE YOURSELF AT HOME</Text><Text style={styles.noteTitle}>Your next good thing is one import away.</Text><Text style={styles.noteBody}>Choose a PDF from Files, or bring an audiobook along for the ride.</Text></View>
     <View style={styles.urlRow}><Text style={styles.urlTitle}>AUDIO FROM A LINK</Text><View style={styles.urlInputRow}><TextInput accessibilityLabel="Direct HTTPS audiobook URL" style={styles.urlInput} autoCapitalize="none" keyboardType="url" placeholder="Paste an HTTPS audio URL" placeholderTextColor={colors.muted} value={url} onChangeText={setUrl}/><Pressable accessibilityRole="button" disabled={busy || !url.trim()} onPress={() => run(async () => { await downloadBook(url.trim()); setUrl(''); })} style={styles.linkButton}><Text style={styles.linkText}>{busy ? 'ADDING…' : 'SAVE  ↗'}</Text></Pressable></View></View>
     <View style={styles.footer}><Pressable accessibilityRole="button" onPress={() => router.push('/voices')}><Text style={styles.footerLink}>NARRATORS  ↗</Text></Pressable><Pressable accessibilityRole="button" onPress={() => router.push('/settings')}><Text style={styles.footerLink}>SETTINGS  ↗</Text></Pressable><Text style={styles.footerMark}>KENNI  ·  READ AT YOUR OWN PACE</Text></View>
   </ScrollView>;
@@ -63,7 +49,7 @@ export default function Library() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background }, content: { padding: spacing.page, paddingTop: 20, paddingBottom: 54 },
   masthead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 10 }, profile: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }, profileText: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
-  intro: { paddingTop: 43, paddingBottom: 29 }, eyebrow: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 2.3 }, heading: { color: colors.text, fontSize: 48, fontWeight: '300', letterSpacing: -2.6, marginTop: 12 }, headingDot: { color: colors.accent, fontWeight: '500' }, subtitle: { color: colors.muted, fontSize: 15, marginTop: 7, letterSpacing: 0.3 },
+  intro: { paddingTop: 32, paddingBottom: 22 }, eyebrow: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 2.3 }, heading: { color: colors.text, fontSize: 42, fontWeight: '300', letterSpacing: -2, marginTop: 12 }, headingDot: { color: colors.accent, fontWeight: '500' }, subtitle: { color: colors.muted, fontSize: 15, marginTop: 7, letterSpacing: 0.3 },
   actions: { flexDirection: 'row', gap: 10, marginBottom: 24 }, primary: { flex: 1.15, minHeight: 52, borderRadius: 5, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }, primaryText: { color: '#130D18', fontSize: 14, fontWeight: '800' }, secondary: { flex: 1, minHeight: 52, borderRadius: 5, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }, secondaryText: { color: colors.text, fontSize: 13, fontWeight: '700' }, disabled: { opacity: 0.5 },
   state: { color: colors.muted, paddingTop: 18, fontSize: 13 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 39, marginBottom: 20 }, sectionKicker: { color: colors.accent, fontWeight: '800', letterSpacing: 1.6, fontSize: 9 }, sectionTitle: { color: colors.text, fontSize: 27, fontWeight: '400', letterSpacing: -0.8, marginTop: 5 }, count: { color: colors.muted, fontSize: 9, letterSpacing: 1.1, paddingBottom: 4 },
